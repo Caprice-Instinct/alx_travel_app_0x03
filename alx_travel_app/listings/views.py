@@ -7,13 +7,33 @@ from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from .models import Booking, Payment
 from .serializers import BookingSerializer, PaymentSerializer
 from .tasks import send_booking_confirmation_email
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 
 CHAPA_SECRET_KEY = os.getenv('CHAPA_SECRET_KEY', 'your_chapa_secret_key_here')
 CHAPA_BASE_URL = 'https://api.chapa.co/v1/transaction'
+
+
+@swagger_auto_schema(
+    method='get',
+    operation_description="Health check endpoint",
+    responses={200: "Service is healthy"}
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def health_check(request):
+    """Simple health check endpoint for deployment monitoring."""
+    return Response({
+        'status': 'healthy',
+        'message': 'ALX Travel App is running successfully',
+        'timestamp': timezone.now().isoformat()
+    }, status=status.HTTP_200_OK)
 
 
 class BookingViewSet(viewsets.ModelViewSet):
@@ -24,6 +44,23 @@ class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
 
+    @swagger_auto_schema(
+        operation_description="Create a new booking and send confirmation email",
+        request_body=BookingSerializer,
+        responses={
+            201: openapi.Response(
+                description="Booking created successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING),
+                        'booking': openapi.Schema(type=openapi.TYPE_OBJECT)
+                    }
+                )
+            ),
+            400: "Bad Request"
+        }
+    )
     def create(self, request, *args, **kwargs):
         """
         Create a new booking and trigger email notification asynchronously.
@@ -64,6 +101,33 @@ class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
 
+    @swagger_auto_schema(
+        method='post',
+        operation_description="Initiate payment via Chapa API",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['booking_reference', 'amount', 'email'],
+            properties={
+                'booking_reference': openapi.Schema(type=openapi.TYPE_STRING),
+                'amount': openapi.Schema(type=openapi.TYPE_NUMBER),
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL)
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Payment initiated successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'checkout_url': openapi.Schema(type=openapi.TYPE_STRING),
+                        'payment_id': openapi.Schema(type=openapi.TYPE_INTEGER)
+                    }
+                )
+            ),
+            400: "Bad Request",
+            500: "Internal Server Error"
+        }
+    )
     @action(detail=False, methods=['post'])
     def initiate(self, request):
         """Initiate payment via Chapa API."""
@@ -113,6 +177,31 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @swagger_auto_schema(
+        method='post',
+        operation_description="Verify payment status via Chapa API",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['payment_id'],
+            properties={
+                'payment_id': openapi.Schema(type=openapi.TYPE_INTEGER)
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Payment verification result",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'status': openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: "Bad Request",
+            404: "Payment not found",
+            500: "Internal Server Error"
+        }
+    )
     @action(detail=False, methods=['post'])
     def verify(self, request):
         """Verify payment status via Chapa API."""

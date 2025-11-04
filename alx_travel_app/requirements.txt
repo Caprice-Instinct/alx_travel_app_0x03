@@ -5,8 +5,16 @@ python-dotenv>=1.0.0
 requests>=2.31.0
 # For RabbitMQ support
 kombu>=5.3.0
-# Email support
-# If using a specific email backend, add those dependencies here
-
-# Optional: For development
-# django-debug-toolbar>=4.2.0
+# Swagger API documentation
+drf-yasg>=1.21.7
+# Production server
+gunicorn>=21.2.0
+# Database support
+psycopg2-binary>=2.9.7
+dj-database-url>=2.1.0
+# Static files handling
+whitenoise>=6.5.0
+# CORS handling
+django-cors-headers>=4.3.0
+# Redis for production Celery
+redis>=4.6.0
