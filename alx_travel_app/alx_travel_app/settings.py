@@ -20,7 +20,7 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Auto-detect deployment host
 if 'RENDER' in os.environ:
-    ALLOWED_HOSTS = ['.onrender.com']
+    ALLOWED_HOSTS = ['*']  # Allow all hosts on Render
 elif 'PYTHONANYWHERE_DOMAIN' in os.environ:
     ALLOWED_HOSTS = ['.pythonanywhere.com']
 else:
